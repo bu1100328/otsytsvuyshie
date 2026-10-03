@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b0b14">
+<title>Посещаемость класса</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+    --bg: #0b0b14;
+    --bg-2: #13131f;
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.14);
+    --text: #f5f5fa;
+    --text-muted: #8b8b9e;
+    --primary: #7c5cff;
+    --danger: #ff4d6d;
+    --success: #22d3a4;
+    --warning: #ffb547;
+}
+
+html, body { overscroll-behavior-y: contain; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    position: relative;
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: -200px; left: -100px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(124,92,255,0.25), transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+body::after {
+    content: '';
+    position: fixed;
+    bottom: -200px; right: -100px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(255,77,109,0.15), transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.top-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(11,11,20,0.85);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding-top: env(safe-area-inset-top);
+}
+
+.top-inner {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 14px 16px;
+}
+
+.header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    gap: 10px;
+}
+
+.logo { display: flex; align-items: center; gap: 11px; }
+
+.logo-icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, #7c5cff, #ff4d6d);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+    box-shadow: 0 4px 16px rgba(124,92,255,0.4);
+}
+
+.logo h1 { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
+
+.logo p { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+.date-chip {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 7px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    color: var(--text-muted);
+}
+
+.date-chip::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--success);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--success);
+}
+
+.search-box { position: relative; margin-bottom: 10px; }
+
+.search-box input {
+    width: 100%;
+    padding: 13px 40px 13px 44px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    font-size: 16px;
+    background: var(--card);
+    color: var(--text);
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.search-box input::placeholder { color: var(--text-muted); }
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: rgba(124,92,255,0.08);
+    box-shadow: 0 0 0 4px rgba(124,92,255,0.15);
+}
+
+.search-box .search-icon {
+    position: absolute;
+    left: 15px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 15px;
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.search-clear {
+    position: absolute;
+    right: 10px; top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255,255,255,0.06);
+    border: none;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-muted);
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.search-clear.visible { display: flex; }
+
+.quick-actions { display: flex; gap: 8px; }
+
+.btn {
+    padding: 12px 14px;
+    border: none;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.2s, background 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-family: inherit;
+    min-height: 46px;
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+}
+
+.btn:active { transform: scale(0.96); }
+
+.btn-primary {
+    background: linear-gradient(135deg, #7c5cff, #a78bfa);
+    color: white;
+    box-shadow: 0 4px 16px rgba(124,92,255,0.35);
+    flex: 1;
+}
+
+.btn-ghost {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    flex: 1;
+}
+
+.btn-ghost:active { background: rgba(255,255,255,0.08); }
+
+.content {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 16px 16px 100px;
+    position: relative;
+    z-index: 1;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    opacity: 0.6;
+}
+
+.stat-card.total::before { background: linear-gradient(90deg, #7c5cff, transparent); }
+.stat-card.absent::before { background: linear-gradient(90deg, #ff4d6d, transparent); }
+.stat-card.rate::before { background: linear-gradient(90deg, #22d3a4, transparent); }
+.stat-card.days::before { background: linear-gradient(90deg, #ffb547, transparent); }
+
+.stat-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+}
+
+.stat-value.total { color: #a78bfa; }
+.stat-value.absent { color: #ff4d6d; }
+.stat-value.rate { color: #22d3a4; }
+.stat-value.days { color: #ffb547; }
+
+.section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 22px 4px 12px;
+    gap: 10px;
+}
+
+.section-title h2 { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; }
+
+.hint-badge {
+    font-size: 10.5px;
+    background: rgba(255,181,71,0.15);
+    color: var(--warning);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: 700;
+    border: 1px solid rgba(255,181,71,0.25);
+    white-space: nowrap;
+}
+
+.student-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.student-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 12px 14px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.1s, background 0.2s, border-color 0.2s;
+    position: relative;
+    min-height: 60px;
+}
+
+.student-card:active { transform: scale(0.985); }
+
+.student-card.absent {
+    background: linear-gradient(135deg, rgba(255,77,109,0.12), rgba(255,77,109,0.02));
+    border-color: rgba(255,77,109,0.3);
+}
+
+.student-card.recent:not(.absent) { border-color: rgba(255,181,71,0.3); }
+
+.student-card.recent::after {
+    content: '';
+    position: absolute;
+    left: 0; top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 40%;
+    background: var(--warning);
+    border-radius: 0 3px 3px 0;
+    box-shadow: 0 0 8px var(--warning);
+}
+
+.student-card.absent.recent::after {
+    background: var(--danger);
+    box-shadow: 0 0 8px var(--danger);
+}
+
+.student-avatar {
+    width: 42px; height: 42px;
+    border-radius: 13px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.25), rgba(124,92,255,0.08));
+    color: #c4b5fd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 14px;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    border: 1px solid rgba(124,92,255,0.2);
+}
+
+.student-card.absent .student-avatar {
+    background: linear-gradient(135deg, rgba(255,77,109,0.25), rgba(255,77,109,0.08));
+    color: #ffb0bf;
+    border-color: rgba(255,77,109,0.25);
+}
+
+.student-info { flex: 1; min-width: 0; }
+
+.student-name {
+    font-weight: 700;
+    font-size: 14.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.01em;
+}
+
+.student-card.absent .student-name {
+    color: var(--text-muted);
+    text-decoration: line-through;
+    text-decoration-color: var(--danger);
+    text-decoration-thickness: 2px;
+}
+
+.student-meta {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.student-meta .miss-count { color: var(--danger); font-weight: 700; }
+
+.status-toggle {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    font-size: 15px;
+    font-weight: bold;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    background: transparent;
+}
+
+.student-card.absent .status-toggle {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: white;
+    box-shadow: 0 0 12px rgba(255,77,109,0.5);
+}
+
+.student-card:not(.absent) .status-toggle {
+    background: var(--success);
+    border-color: var(--success);
+    color: #0b0b14;
+    box-shadow: 0 0 10px rgba(34,211,164,0.35);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.empty-state .emoji {
+    font-size: 44px;
+    display: block;
+    margin-bottom: 12px;
+    opacity: 0.4;
+}
+
+.charts-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 16px;
+    border-radius: 16px;
+}
+
+.chart-card h3 {
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 2px;
+    letter-spacing: -0.01em;
+}
+
+.chart-card .chart-sub {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+}
+
+.chart-wrapper { position: relative; height: 220px; }
+
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.modal.active { display: flex; }
+
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+.modal-sheet {
+    background: var(--bg-2);
+    width: 100%;
+    max-width: 640px;
+    border-radius: 24px 24px 0 0;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    animation: slideUp 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    padding-bottom: env(safe-area-inset-bottom);
+    border: 1px solid var(--border);
+    border-bottom: none;
+}
+
+.sheet-handle {
+    width: 40px; height: 4px;
+    background: var(--border-strong);
+    border-radius: 4px;
+    margin: 10px auto 0;
+    flex-shrink: 0;
+}
+
+.modal-header {
+    padding: 16px 20px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 240px;
+}
+
+.modal-header p {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.modal-close {
+    background: var(--card);
+    border: 1px solid var(--border);
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-width: 34px;
+}
+
+.modal-body {
+    padding: 16px 20px 24px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.student-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.mini-stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 12px 8px;
+    border-radius: 14px;
+    text-align: center;
+}
+
+.mini-stat .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.mini-stat .value {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.mini-stat .value.danger { color: var(--danger); }
+.mini-stat .value.success { color: var(--success); }
+
+.history-list { display: flex; flex-direction: column; }
+
+.history-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+}
+
+.history-item:last-child { border-bottom: none; }
+.history-date { font-weight: 700; letter-spacing: -0.01em; }
+.history-weekday { font-size: 12px; color: var(--text-muted); margin-left: 8px; font-weight: 400; }
+
+.history-badge {
+    background: rgba(255,77,109,0.15);
+    color: var(--danger);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid rgba(255,77,109,0.25);
+}
+
+.history-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.history-empty .emoji { font-size: 44px; display: block; margin-bottom: 12px; opacity: 0.4; }
+
+.rank-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.rank-item:last-child { border-bottom: none; }
+
+.rank-num {
+    width: 30px; height: 30px;
+    border-radius: 10px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 13px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.rank-num.top {
+    background: linear-gradient(135deg, rgba(255,77,109,0.2), rgba(255,77,109,0.05));
+    color: var(--danger);
+    border-color: rgba(255,77,109,0.3);
+}
+
+.rank-info { flex: 1; min-width: 0; }
+
+.rank-name {
+    font-weight: 700;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.01em;
+}
+
+.rank-dates { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.rank-count { font-weight: 800; font-size: 16px; color: var(--danger); flex-shrink: 0; }
+
+.rank-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.rank-empty .emoji { font-size: 44px; display: block; margin-bottom: 12px; opacity: 0.4; }
+
+.toast {
+    position: fixed;
+    bottom: calc(24px + env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%) translateY(120px);
+    background: linear-gradient(135deg, #1a1a28, #0b0b14);
+    border: 1px solid var(--border-strong);
+    color: white;
+    padding: 12px 22px;
+    border-radius: 24px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    z-index: 2000;
+    pointer-events: none;
+    max-width: 90vw;
+    text-align: center;
+}
+
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+.reset-zone { text-align: center; padding: 24px 0 8px; }
+
+.reset-zone button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: underline;
+    font-family: inherit;
+    padding: 8px;
+}
+
+.reset-zone button:active { color: var(--danger); }
+
+@media (min-width: 720px) {
+    .student-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .summary-grid { grid-template-columns: repeat(4, 1fr); }
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal { align-items: center; }
+    .modal-sheet { border-radius: 24px; margin: 20px; border-bottom: 1px solid var(--border); }
+}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+    <div class="top-inner">
+        <div class="header-row">
+            <div class="logo">
+                <div class="logo-icon">📋</div>
+                <div>
+                    <h1>Посещаемость</h1>
+                    <p id="presentLine">—</p>
+                </div>
+            </div>
+            <div class="date-chip" id="dateChip">—</div>
+        </div>
+
+        <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="Поиск ученика..." autocomplete="off">
+            <button class="search-clear" id="searchClear" type="button">✕</button>
+        </div>
+
+        <div class="quick-actions">
+            <button class="btn btn-ghost" type="button" id="btnAllPresent">✅ Все на месте</button>
+            <button class="btn btn-primary" type="button" id="btnStats">📊 Статистика</button>
+        </div>
+    </div>
+</div>
+
+<div class="content">
+    <div class="summary-grid">
+        <div class="stat-card total">
+            <div class="stat-label">Всего</div>
+            <div class="stat-value total" id="sumTotal">0</div>
+        </div>
+        <div class="stat-card absent">
+            <div class="stat-label">Нет сегодня</div>
+            <div class="stat-value absent" id="sumAbsent">0</div>
+        </div>
+        <div class="stat-card rate">
+            <div class="stat-label">Посещаемость</div>
+            <div class="stat-value rate" id="sumRate">—</div>
+        </div>
+        <div class="stat-card days">
+            <div class="stat-label">Дней в журнале</div>
+            <div class="stat-value days" id="sumDays">0</div>
+        </div>
+    </div>
+
+    <div class="section-title">
+        <h2>Список класса</h2>
+        <span class="hint-badge" id="sortHint" style="display:none;">⚠ недавно пропускали</span>
+    </div>
+
+    <div class="student-list" id="studentList"></div>
+
+    <div class="section-title">
+        <h2>Аналитика</h2>
+    </div>
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h3>Кто пропускает больше всех</h3>
+            <div class="chart-sub">Топ-8 по количеству отсутствий</div>
+            <div class="chart-wrapper"><canvas id="topChart"></canvas></div>
+        </div>
+        <div class="chart-card">
+            <h3>Динамика по дням</h3>
+            <div class="chart-sub">Сколько человек отсутствовало каждый день</div>
+            <div class="chart-wrapper"><canvas id="trendChart"></canvas></div>
+        </div>
+    </div>
+
+    <div class="reset-zone">
+        <button type="button" id="btnReset">Сбросить все данные журнала</button>
+    </div>
+</div>
+
+<div class="modal" id="studentModal">
+    <div class="modal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="modal-header">
+            <div style="min-width:0;">
+                <h2 id="modalStudentName">—</h2>
+                <p id="modalStudentSub">История отсутствий</p>
+            </div>
+            <button class="modal-close" type="button" data-close="studentModal">✕</button>
+        </div>
+        <div class="modal-body" id="studentModalBody"></div>
+    </div>
+</div>
+
+<div class="modal" id="statsModal">
+    <div class="modal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="modal-header">
+            <div style="min-width:0;">
+                <h2>Общая статистика</h2>
+                <p>Рейтинг отсутствий по классу</p>
+            </div>
+            <button class="modal-close" type="button" data-close="statsModal">✕</button>
+        </div>
+        <div class="modal-body" id="statsModalBody"></div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var STUDENTS = [
+    "Андросова Мария",
+    "Багандова Эльмира",
+    "Белоусова Арианна",
+    "Беспалая Златослава",
+    "Роналду Криштиану",
+    "Габидова Диана",
+    "Данилов Арсений",
+    "Дудникова Маргарита",
+    "Дунина Арина",
+    "Джигельдеев Азамат",
+    "Дьяков Данила",
+    "Егорова Арина",
+    "Еранцева Виктория",
+    "Зинина Анастасия",
+    "Ильина Мария",
+    "Ибрашева Аниса",
+    "Кубжасаров Даурен",
+    "Лешенок Варвара",
+    "Лысенко Анабель",
+    "Магомедова Марьям",
+    "Мартынова Анна",
+    "Мартазанова Лина",
+    "Мухамедов Артем",
+    "Низамов Данис",
+    "Низамова Сафина",
+    "Пересветов Платон",
+    "Потынга Полина",
+    "Сенина Ольга",
+    "Снегирева Варвара",
+    "Темиров Хабиб",
+    "Токуров Миралим",
+    "Чумаков Марк",
+    "Шаханов Марсэль",
+    "Эсмурзиев Артемий"
+];
+
+var STORAGE_KEY = 'class_attendance_v5';
+var RECENT_DAYS = 7;
+var currentSearch = '';
+var topChart = null;
+var trendChart = null;
+
+function loadData() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+    catch(e) { return {}; }
+}
+
+function saveData(data) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+    catch(e) { console.error(e); }
+}
+
+function todayKey() {
+    var d = new Date();
+    return d.getFullYear() + '-' +
+        String(d.getMonth()+1).padStart(2,'0') + '-' +
+        String(d.getDate()).padStart(2,'0');
+}
+
+function formatDateShort(key) {
+    var p = key.split('-').map(Number);
+    var m = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+    return p[2] + ' ' + m[p[1]-1];
+}
+
+function formatDateLong(key) {
+    var p = key.split('-').map(Number);
+    var m = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+    return p[2] + ' ' + m[p[1]-1] + ' ' + p[0];
+}
+
+function weekdayName(key) {
+    var p = key.split('-').map(Number);
+    var dt = new Date(p[0], p[1]-1, p[2]);
+    return ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'][dt.getDay()];
+}
+
+function daysAgoKey(n) {
+    var d = new Date();
+    d.setDate(d.getDate() - n);
+    return d.getFullYear() + '-' +
+        String(d.getMonth()+1).padStart(2,'0') + '-' +
+        String(d.getDate()).padStart(2,'0');
+}
+
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#39;');
+}
+
+function plural(n) {
+    var m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return '';
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'а';
+    return '';
+}
+
+function initials(name) {
+    var parts = name.split(' ');
+    var res = '';
+    for (var i = 0; i < parts.length && i < 2; i++) {
+        if (parts[i][0]) res += parts[i][0];
+    }
+    return res.toUpperCase();
+}
+
+function buildStats() {
+    var data = loadData();
+    var dates = Object.keys(data).sort();
+    var recentLimit = daysAgoKey(RECENT_DAYS);
+
+    return STUDENTS.map(function(name) {
+        var absences = [];
+        dates.forEach(function(date) {
+            if (data[date][name] === true) absences.push(date);
+        });
+
+        var totalSessions = dates.length;
+        var totalAbsent = absences.length;
+        var lastDate = absences.length ? absences[absences.length - 1] : null;
+        var isRecent = lastDate && lastDate >= recentLimit;
+        var rate = totalSessions === 0 ? 100 :
+            Math.round(((totalSessions - totalAbsent) / totalSessions) * 100);
+
+        return {
+            name: name,
+            absences: absences,
+            totalAbsent: totalAbsent,
+            totalSessions: totalSessions,
+            lastDate: lastDate,
+            isRecent: isRecent,
+            rate: rate
+        };
+    });
+}
+
+function render() {
+    var data = loadData();
+    var today = todayKey();
+    var todayData = data[today] || {};
+    var stats = buildStats();
+
+    stats.sort(function(a, b) {
+        if (a.isRecent !== b.isRecent) return a.isRecent ? -1 : 1;
+        if (a.totalAbsent !== b.totalAbsent) return b.totalAbsent - a.totalAbsent;
+        return a.name.localeCompare(b.name, 'ru');
+    });
+
+    var q = currentSearch.trim().toLowerCase();
+    var filtered = q ? stats.filter(function(s) {
+        return s.name.toLowerCase().indexOf(q) !== -1;
+    }) : stats;
+
+    var totalStudents = STUDENTS.length;
+    var absentToday = 0;
+    for (var k in todayData) {
+        if (todayData[k] === true) absentToday++;
+    }
+    var presentToday = totalStudents - absentToday;
+    var rateToday = totalStudents ? Math.round((presentToday / totalStudents) * 100) : 0;
+    var totalDays = Object.keys(data).length;
+
+    document.getElementById('sumTotal').textContent = totalStudents;
+    document.getElementById('sumAbsent').textContent = absentToday;
+    document.getElementById('sumRate').textContent = rateToday + '%';
+    document.getElementById('sumDays').textContent = totalDays;
+    document.getElementById('presentLine').textContent =
+        presentToday + ' из ' + totalStudents + ' на месте · ' + rateToday + '%';
+    document.getElementById('dateChip').textContent = formatDateShort(today);
+
+    var anyRecent = stats.some(function(s){ return s.isRecent; });
+    document.getElementById('sortHint').style.display = anyRecent ? '' : 'none';
+
+    var list = document.getElementById('studentList');
+    if (filtered.length === 0) {
+        list.innerHTML = '<div class="empty-state"><span class="emoji">🔍</span>Никого не найдено по запросу «' + escapeHtml(currentSearch) + '»</div>';
+    } else {
+        var html = '';
+        filtered.forEach(function(s) {
+            var isAbsent = todayData[s.name] === true;
+            var meta;
+            if (s.totalAbsent === 0) {
+                meta = '<span>Ни разу не пропускал</span>';
+            } else {
+                meta = '<span><span class="miss-count">' + s.totalAbsent + '</span> раз' + plural(s.totalAbsent) + '</span>';
+                if (s.lastDate) meta += '<span>· посл. ' + formatDateShort(s.lastDate) + '</span>';
+            }
+
+            var classes = 'student-card';
+            if (isAbsent) classes += ' absent';
+            if (s.isRecent) classes += ' recent';
+
+            html += '<div class="' + classes + '" data-name="' + escapeHtml(s.name) + '">' +
+                '<div class="student-avatar">' + initials(s.name) + '</div>' +
+                '<div class="student-info">' +
+                    '<div class="student-name">' + escapeHtml(s.name) + '</div>' +
+                    '<div class="student-meta">' + meta + '</div>' +
+                '</div>' +
+                '<div class="status-toggle">' + (isAbsent ? '✕' : '✓') + '</div>' +
+            '</div>';
+        });
+        list.innerHTML = html;
+
+        var cards = list.querySelectorAll('.student-card');
+        for (var i = 0; i < cards.length; i++) {
+            (function(card) {
+                var name = card.getAttribute('data-name');
+                card.addEventListener('click', function() { toggleAbsent(name); });
+                card.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                    openStudentModal(name);
+                });
+            })(cards[i]);
+        }
+    }
+
+    renderCharts(stats);
+}
+
+function renderCharts(stats) {
+    if (typeof Chart === 'undefined') return;
+
+    var topSorted = stats.slice().sort(function(a,b){ return b.totalAbsent - a.totalAbsent; });
+    var top8 = topSorted.filter(function(s){ return s.totalAbsent > 0; }).slice(0, 8);
+
+    var topLabels = top8.map(function(s) {
+        var p = s.name.split(' ');
+        return p[0] + ' ' + (p[1] ? p[1][0] + '.' : '');
+    });
+    var topValues = top8.map(function(s){ return s.totalAbsent; });
+
+    if (topChart) topChart.destroy();
+
+    var topCanvas = document.getElementById('topChart');
+    if (!topCanvas) return;
+
+    if (top8.length === 0) {
+        var ctxEmpty = topCanvas.getContext('2d');
+        ctxEmpty.clearRect(0, 0, topCanvas.width, topCanvas.height);
+        ctxEmpty.fillStyle = '#8b8b9e';
+        ctxEmpty.font = '13px sans-serif';
+        ctxEmpty.textAlign = 'center';
+        ctxEmpty.fillText('Пока нет данных о пропусках', topCanvas.width/2, topCanvas.height/2);
+    } else {
+        topChart = new Chart(topCanvas, {
+            type: 'bar',
+            data: {
+                labels: topLabels,
+                datasets: [{
+                    data: topValues,
+                    backgroundColor: 'rgba(255,77,109,0.7)',
+                    borderColor: '#ff4d6d',
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) { return ctx.parsed.x + ' раз' + plural(ctx.parsed.x); }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { color: '#8b8b9e', font: { size: 11 }, stepSize: 1 },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    },
+                    y: {
+                        ticks: { color: '#f5f5fa', font: { size: 11 } },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    }
+
+    var data = loadData();
+    var dates = Object.keys(data).sort().slice(-14);
+    var trendLabels = dates.map(function(d){ return formatDateShort(d); });
+    var trendValues = dates.map(function(d) {
+        var c = 0;
+        for (var k in data[d]) if (data[d][k] === true) c++;
+        return c;
+    });
+
+    if (trendChart) trendChart.destroy();
+
+    var trendCanvas = document.getElementById('trendChart');
+    if (!trendCanvas) return;
+
+    if (dates.length === 0) {
+        var ctxE = trendCanvas.getContext('2d');
+        ctxE.clearRect(0, 0, trendCanvas.width, trendCanvas.height);
+        ctxE.fillStyle = '#8b8b9e';
+        ctxE.font = '13px sans-serif';
+        ctxE.textAlign = 'center';
+        ctxE.fillText('Отметьте кого-нибудь — появится график', trendCanvas.width/2, trendCanvas.height/2);
+    } else {
+        var ctx = trendCanvas.getContext('2d');
+        var gradient = ctx.createLinearGradient(0, 0, 0, 220);
+        gradient.addColorStop(0, 'rgba(124,92,255,0.4)');
+        gradient.addColorStop(1, 'rgba(124,92,255,0.02)');
+
+        trendChart = new Chart(trendCanvas, {
+            type: 'line',
+            data: {
+                labels: trendLabels,
+                datasets: [{
+                    data: trendValues,
+                    borderColor: '#a78bfa',
+                    backgroundColor: gradient,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.35,
+                    pointBackgroundColor: '#a78bfa',
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) { return ctx.parsed.y + ' отсутствовал' + plural(ctx.parsed.y); }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#8b8b9e', font: { size: 10 } },
+                        grid: { display: false }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: '#8b8b9e', font: { size: 11 }, stepSize: 1, precision: 0 },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    }
+                }
+            }
+        });
+    }
+}
+
+function toggleAbsent(name) {
+    var today = todayKey();
+    var data = loadData();
+    if (!data[today]) data[today] = {};
+
+    if (data[today][name] === true) {
+        delete data[today][name];
+        showToast(name + ' — присутствует');
+    } else {
+        data[today][name] = true;
+        showToast(name + ' — отсутствует');
+    }
+
+    saveData(data);
+    render();
+}
+
+function markAllPresent() {
+    var today = todayKey();
+    var data = loadData();
+    var count = 0;
+    if (data[today]) {
+        for (var k in data[today]) if (data[today][k] === true) count++;
+    }
+
+    if (count === 0) {
+        showToast('Уже все отмечены как присутствующие');
+        return;
+    }
+
+    delete data[today];
+    saveData(data);
+    render();
+    showToast('Все отмечены как присутствующие');
+}
+
+function resetAll() {
+    if (!confirm('Удалить всю историю журнала? Это действие нельзя отменить.')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    render();
+    showToast('Журнал сброшен');
+}
+
+function openStudentModal(name) {
+    var data = loadData();
+    var dates = Object.keys(data).sort();
+    var absences = [];
+    dates.forEach(function(d) {
+        if (data[d][name] === true) absences.push(d);
+    });
+
+    var totalSessions = dates.length;
+    var totalAbsent = absences.length;
+    var rate = totalSessions === 0 ? 100 :
+        Math.round(((totalSessions - totalAbsent) / totalSessions) * 100);
+
+    document.getElementById('modalStudentName').textContent = name;
+    document.getElementById('modalStudentSub').textContent =
+        totalSessions === 0
+            ? 'Ещё нет ни одной записи в журнале'
+            : 'Посещаемость ' + rate + '% · ' + totalSessions + ' занят' + plural(totalSessions);
+
+    var body = document.getElementById('studentModalBody');
+    var html = '';
+
+    html += '<div class="student-summary">' +
+        '<div class="mini-stat"><div class="label">Всего пропусков</div><div class="value danger">' + totalAbsent + '</div></div>' +
+        '<div class="mini-stat"><div class="label">Посещаемость</div><div class="value success">' + rate + '%</div></div>' +
+        '<div class="mini-stat"><div class="label">Последний</div><div class="value">' + (absences.length ? formatDateShort(absences[absences.length-1]) : '—') + '</div></div>' +
+    '</div>';
+
+    if (absences.length === 0) {
+        html += '<div class="history-empty"><span class="emoji">✨</span>Ни одного пропуска — так держать!</div>';
+    } else {
+        html += '<div class="history-list">';
+        absences.slice().reverse().forEach(function(d) {
+            html += '<div class="history-item">' +
+                '<div><span class="history-date">' + formatDateLong(d) + '</span>' +
+                '<span class="history-weekday">' + weekdayName(d) + '</span></div>' +
+                '<span class="history-badge">отсутствовал</span>' +
+            '</div>';
+        });
+        html += '</div>';
+    }
+
+    body.innerHTML = html;
+    document.getElementById('studentModal').classList.add('active');
+}
+
+function openStatsModal() {
+    var stats = buildStats();
+    var withAbsences = stats.filter(function(s){ return s.totalAbsent > 0; });
+    withAbsences.sort(function(a,b){ return b.totalAbsent - a.totalAbsent; });
+
+    var body = document.getElementById('statsModalBody');
+    var html = '';
+
+    if (withAbsences.length === 0) {
+        html = '<div class="rank-empty"><span class="emoji">🎉</span>Пока никто не пропускал — идеальная посещаемость!</div>';
+    } else {
+        withAbsences.forEach(function(s, i) {
+            var rankClass = i < 3 ? 'rank-num top' : 'rank-num';
+            var datesText = s.absences.slice(-3).reverse().map(formatDateShort).join(' · ');
+            if (s.absences.length > 3) datesText += ' · +ещё ' + (s.absences.length - 3);
+            html += '<div class="rank-item">' +
+                '<div class="' + rankClass + '">' + (i+1) + '</div>' +
+                '<div class="rank-info">' +
+                    '<div class="rank-name">' + escapeHtml(s.name) + '</div>' +
+                    '<div class="rank-dates">' + datesText + '</div>' +
+                '</div>' +
+                '<div class="rank-count">' + s.totalAbsent + '</div>' +
+            '</div>';
+        });
+    }
+
+    body.innerHTML = html;
+    document.getElementById('statsModal').classList.add('active');
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.remove('active');
+}
+
+var toastTimer = null;
+function showToast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function() {
+        t.classList.remove('show');
+    }, 1800);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var searchInput = document.getElementById('searchInput');
+    var searchClear = document.getElementById('searchClear');
+
+    searchInput.addEventListener('input', function() {
+        currentSearch = this.value;
+        searchClear.classList.toggle('visible', this.value.length > 0);
+        render();
+    });
+
+    searchClear.addEventListener('click', function() {
+        searchInput.value = '';
+        currentSearch = '';
+        searchClear.classList.remove('visible');
+        render();
+    });
+
+    document.getElementById('btnAllPresent').addEventListener('click', markAllPresent);
+    document.getElementById('btnStats').addEventListener('click', openStatsModal);
+    document.getElementById('btnReset').addEventListener('click', resetAll);
+
+    var closeBtns = document.querySelectorAll('[data-close]');
+    for (var i = 0; i < closeBtns.length; i++) {
+        closeBtns[i].addEventListener('click', function() {
+            closeModal(this.getAttribute('data-close'));
+        });
+    }
+
+    var modals = document.querySelectorAll('.modal');
+    for (var j = 0; j < modals.length; j++) {
+        modals[j].addEventListener('click', function(e) {
+            if (e.target === this) this.classList.remove('active');
+        });
+    }
+
+    render();
+});
+</script>
+</body>
+</html>
